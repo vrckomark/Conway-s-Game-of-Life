@@ -89,8 +89,8 @@ const GameOfLife = () => {
   }, []);
 
   const handleMouseUp = (e: any) => {
-    if (e.evt.button === 1) {
-      // If the middle button was released, stop dragging
+    if (e.evt.button === 1 || e.evt.button === 2) {
+      // If the right or middle button was released, stop dragging
       isDragging.current = false;
     }
     if (e.evt.button === 0) {
