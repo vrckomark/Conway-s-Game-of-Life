@@ -1,32 +1,39 @@
-import { useState, useRef, useMemo, useEffect } from "react";
+import { useState, useRef, useMemo, useEffect, act } from "react";
 import { Layer, Rect, Stage } from "react-konva";
 
-const GRID_SIZE = 16; // Size of each cell in pixels
+const GRID_SIZE = 16;
 
-type CellType = Record<string, boolean>;
+export type CellsType = Record<string, boolean>;
 
-const GameOfLife = () => {
-  const [cells, setCells] = useState<CellType>({});
-  const [offset, setOffset] = useState({ x: 0, y: 0 }); // Track pan position
+interface GameOfLifeProps {
+  isPaused: boolean;
+  cells: CellsType;
+  setCells: React.Dispatch<React.SetStateAction<CellsType>>;
+}
+
+const GameOfLife: React.FC<GameOfLifeProps> = ({
+  isPaused,
+  cells,
+  setCells,
+}) => {
+  const [offset, setOffset] = useState({ x: 0, y: 0 });
   const stageRef = useRef<any>(null);
   const isDragging = useRef(false);
-  const isPainting = useRef(false); // For painting cells with left-click
-  const isErasing = useRef(false); // For erasing cells with right-click
+  const isPainting = useRef(false);
+  const isErasing = useRef(false);
   const lastPos = useRef({ x: 0, y: 0 });
 
   const canvasWidth = Math.ceil(window.innerWidth);
   const canvasHeight = Math.ceil(window.innerHeight);
 
-  // Paint a cell by setting its value to true
   const paintCell = (x: number, y: number) => {
     const key = `${x},${y}`;
     setCells((prev) => {
-      if (prev[key]) return prev; // If cell is already painted, don't re-paint
+      if (prev[key]) return prev;
       return { ...prev, [key]: true };
     });
   };
 
-  // Erase a cell by removing it from the state
   const eraseCell = (x: number, y: number) => {
     const key = `${x},${y}`;
     setCells((prev) => {
@@ -38,15 +45,12 @@ const GameOfLife = () => {
 
   const handleMouseDown = (e: any) => {
     if (e.evt.button === 1) {
-      // Middle click to drag
       isDragging.current = true;
       lastPos.current = { x: e.evt.clientX, y: e.evt.clientY };
     } else if (e.evt.button === 0) {
-      // Left click to paint
       isPainting.current = true;
       handlePaint(e, "paint");
     } else if (e.evt.button === 2) {
-      // Right click to erase
       isErasing.current = true;
       handlePaint(e, "erase");
     }
@@ -58,7 +62,6 @@ const GameOfLife = () => {
     if (!isDragging.current && !isPainting.current && !isErasing.current)
       return;
 
-    // Middle-click to drag the canvas
     if (isDragging.current) {
       if (animationFrame.current) cancelAnimationFrame(animationFrame.current);
 
@@ -71,12 +74,10 @@ const GameOfLife = () => {
       return;
     }
 
-    // Erase if right-click is held
     if (isErasing.current) {
       handlePaint(e, "erase");
     }
 
-    // Paint if left-click is held
     if (isPainting.current) {
       handlePaint(e, "paint");
     }
@@ -90,15 +91,12 @@ const GameOfLife = () => {
 
   const handleMouseUp = (e: any) => {
     if (e.evt.button === 1 || e.evt.button === 2) {
-      // If the right or middle button was released, stop dragging
       isDragging.current = false;
     }
     if (e.evt.button === 0) {
-      // Stop painting when left button is released
       isPainting.current = false;
     }
     if (e.evt.button === 2) {
-      // Stop erasing when right button is released
       isErasing.current = false;
     }
   };
@@ -128,11 +126,80 @@ const GameOfLife = () => {
           width={GRID_SIZE}
           height={GRID_SIZE}
           fill="white"
-          onClick={() => paintCell(x, y)} // Left click action (paint)
+          onClick={() => paintCell(x, y)}
         />
       );
     });
   }, [cells, offset]);
+
+  const getNumberOfNeighbours = ({ x, y }: { x: number; y: number }) => {
+    const directions = [
+      [0, 1],
+      [0, -1],
+      [1, 0],
+      [-1, 0],
+      [1, 1],
+      [1, -1],
+      [-1, 1],
+      [-1, -1],
+    ];
+
+    return directions.reduce((count, [dx, dy]) => {
+      if (cells[`${x + dx},${y + dy}`]) {
+        count++;
+      }
+      return count;
+    }, 0);
+  };
+
+  const populationCheck = () => {
+    const newCells: CellsType = {};
+    const deadCandidates: Record<string, number> = {}; // Dead cells that could become alive
+
+    Object.keys(cells).forEach((key) => {
+      const [x, y] = key.split(",").map(Number);
+      const numNeighbours = getNumberOfNeighbours({ x, y });
+
+      if (numNeighbours === 2 || numNeighbours === 3) {
+        newCells[key] = true;
+      }
+
+      const directions = [
+        [0, 1],
+        [0, -1],
+        [1, 0],
+        [-1, 0],
+        [1, 1],
+        [1, -1],
+        [-1, 1],
+        [-1, -1],
+      ];
+      directions.forEach(([dx, dy]) => {
+        const deadKey = `${x + dx},${y + dy}`;
+        if (!cells[deadKey]) {
+          deadCandidates[deadKey] = (deadCandidates[deadKey] || 0) + 1;
+        }
+      });
+    });
+
+    Object.keys(deadCandidates).forEach((key) => {
+      if (deadCandidates[key] === 3) {
+        newCells[key] = true;
+      }
+    });
+
+    setCells(newCells);
+  };
+
+  useEffect(() => {
+    if (!isPaused) return;
+    const interval = setInterval(() => {
+      act(() => {
+        populationCheck();
+      });
+    }, 200);
+    return () => clearInterval(interval);
+  }, [cells, isPaused]);
 
   return (
     <Stage
@@ -142,7 +209,7 @@ const GameOfLife = () => {
       onMouseDown={handleMouseDown}
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
-      onContextMenu={(e) => e.evt.preventDefault()} // Prevent right-click context menu
+      onContextMenu={(e) => e.evt.preventDefault()}
     >
       <Layer>{visibleCells}</Layer>
     </Stage>
