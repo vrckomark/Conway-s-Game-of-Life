@@ -1,5 +1,6 @@
-import { useState, useRef, useMemo, useEffect, act } from "react";
+import { useState, useRef, useMemo, useEffect, act, useContext } from "react";
 import { Layer, Rect, Stage } from "react-konva";
+import { GenerationContext } from "./contexts/generationContext";
 
 const GRID_SIZE = 16;
 
@@ -7,15 +8,11 @@ export type CellsType = Record<string, boolean>;
 
 interface GameOfLifeProps {
   isPaused: boolean;
-  cells: CellsType;
-  setCells: React.Dispatch<React.SetStateAction<CellsType>>;
 }
 
-const GameOfLife: React.FC<GameOfLifeProps> = ({
-  isPaused,
-  cells,
-  setCells,
-}) => {
+const GameOfLife: React.FC<GameOfLifeProps> = ({ isPaused }) => {
+  const { currentGeneraion, onCurrentGenerationChange, nextGeneration } =
+    useContext(GenerationContext);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
   const stageRef = useRef<any>(null);
   const isDragging = useRef(false);
@@ -27,20 +24,19 @@ const GameOfLife: React.FC<GameOfLifeProps> = ({
   const canvasHeight = Math.ceil(window.innerHeight);
 
   const paintCell = (x: number, y: number) => {
+    if (!isPaused) return;
     const key = `${x},${y}`;
-    setCells((prev) => {
-      if (prev[key]) return prev;
-      return { ...prev, [key]: true };
-    });
+    if (currentGeneraion[key]) return;
+    onCurrentGenerationChange({ ...currentGeneraion, [key]: true });
   };
 
   const eraseCell = (x: number, y: number) => {
+    if (!isPaused) return;
+
     const key = `${x},${y}`;
-    setCells((prev) => {
-      const newCells = { ...prev };
-      delete newCells[key];
-      return newCells;
-    });
+    const newCells = { ...currentGeneraion };
+    delete newCells[key];
+    onCurrentGenerationChange(newCells);
   };
 
   const handleMouseDown = (e: any) => {
@@ -116,7 +112,7 @@ const GameOfLife: React.FC<GameOfLifeProps> = ({
   };
 
   const visibleCells = useMemo(() => {
-    return Object.keys(cells).map((key) => {
+    return Object.keys(currentGeneraion).map((key) => {
       const [x, y] = key.split(",").map(Number);
       return (
         <Rect
@@ -130,76 +126,17 @@ const GameOfLife: React.FC<GameOfLifeProps> = ({
         />
       );
     });
-  }, [cells, offset]);
-
-  const getNumberOfNeighbours = ({ x, y }: { x: number; y: number }) => {
-    const directions = [
-      [0, 1],
-      [0, -1],
-      [1, 0],
-      [-1, 0],
-      [1, 1],
-      [1, -1],
-      [-1, 1],
-      [-1, -1],
-    ];
-
-    return directions.reduce((count, [dx, dy]) => {
-      if (cells[`${x + dx},${y + dy}`]) {
-        count++;
-      }
-      return count;
-    }, 0);
-  };
-
-  const populationCheck = () => {
-    const newCells: CellsType = {};
-    const deadCandidates: Record<string, number> = {}; // Dead cells that could become alive
-
-    Object.keys(cells).forEach((key) => {
-      const [x, y] = key.split(",").map(Number);
-      const numNeighbours = getNumberOfNeighbours({ x, y });
-
-      if (numNeighbours === 2 || numNeighbours === 3) {
-        newCells[key] = true;
-      }
-
-      const directions = [
-        [0, 1],
-        [0, -1],
-        [1, 0],
-        [-1, 0],
-        [1, 1],
-        [1, -1],
-        [-1, 1],
-        [-1, -1],
-      ];
-      directions.forEach(([dx, dy]) => {
-        const deadKey = `${x + dx},${y + dy}`;
-        if (!cells[deadKey]) {
-          deadCandidates[deadKey] = (deadCandidates[deadKey] || 0) + 1;
-        }
-      });
-    });
-
-    Object.keys(deadCandidates).forEach((key) => {
-      if (deadCandidates[key] === 3) {
-        newCells[key] = true;
-      }
-    });
-
-    setCells(newCells);
-  };
+  }, [currentGeneraion, offset]);
 
   useEffect(() => {
-    if (!isPaused) return;
+    if (isPaused) return;
     const interval = setInterval(() => {
       act(() => {
-        populationCheck();
+        nextGeneration();
       });
-    }, 200);
+    }, 150);
     return () => clearInterval(interval);
-  }, [cells, isPaused]);
+  }, [currentGeneraion, isPaused]);
 
   return (
     <Stage
