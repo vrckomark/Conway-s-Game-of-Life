@@ -1,6 +1,7 @@
 import { useState, useRef, useMemo, useEffect, act, useContext } from "react";
 import { Layer, Rect, Stage } from "react-konva";
 import { GenerationContext } from "./contexts/generationContext";
+import Konva from "konva";
 
 const GRID_SIZE = 16;
 
@@ -14,6 +15,7 @@ const GameOfLife: React.FC<GameOfLifeProps> = ({ isPaused }) => {
   const { currentGeneraion, onCurrentGenerationChange, nextGeneration } =
     useContext(GenerationContext);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const stageRef = useRef<any>(null);
   const isDragging = useRef(false);
   const isPainting = useRef(false);
@@ -39,22 +41,22 @@ const GameOfLife: React.FC<GameOfLifeProps> = ({ isPaused }) => {
     onCurrentGenerationChange(newCells);
   };
 
-  const handleMouseDown = (e: any) => {
+  const handleMouseDown = (e: Konva.KonvaEventObject<MouseEvent>) => {
     if (e.evt.button === 1) {
       isDragging.current = true;
       lastPos.current = { x: e.evt.clientX, y: e.evt.clientY };
     } else if (e.evt.button === 0) {
       isPainting.current = true;
-      handlePaint(e, "paint");
+      handlePaint("paint");
     } else if (e.evt.button === 2) {
       isErasing.current = true;
-      handlePaint(e, "erase");
+      handlePaint("erase");
     }
   };
 
   const animationFrame = useRef<number | null>(null);
 
-  const handleMouseMove = (e: any) => {
+  const handleMouseMove = (e: Konva.KonvaEventObject<MouseEvent>) => {
     if (!isDragging.current && !isPainting.current && !isErasing.current)
       return;
 
@@ -71,11 +73,11 @@ const GameOfLife: React.FC<GameOfLifeProps> = ({ isPaused }) => {
     }
 
     if (isErasing.current) {
-      handlePaint(e, "erase");
+      handlePaint("erase");
     }
 
     if (isPainting.current) {
-      handlePaint(e, "paint");
+      handlePaint("paint");
     }
   };
 
@@ -85,7 +87,7 @@ const GameOfLife: React.FC<GameOfLifeProps> = ({ isPaused }) => {
     };
   }, []);
 
-  const handleMouseUp = (e: any) => {
+  const handleMouseUp = (e: Konva.KonvaEventObject<MouseEvent>) => {
     if (e.evt.button === 1 || e.evt.button === 2) {
       isDragging.current = false;
     }
@@ -97,7 +99,7 @@ const GameOfLife: React.FC<GameOfLifeProps> = ({ isPaused }) => {
     }
   };
 
-  const handlePaint = (e: any, action: "paint" | "erase") => {
+  const handlePaint = (action: "paint" | "erase") => {
     const stage = stageRef.current;
     if (stage) {
       const pointer = stage.getPointerPosition();
