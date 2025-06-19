@@ -1,4 +1,4 @@
-import { useState, useRef, useMemo, useEffect, act, useContext } from "react";
+import { useState, useRef, useMemo, useEffect, useContext } from "react";
 import { Layer, Rect, Stage } from "react-konva";
 import { GenerationContext } from "./contexts/generationContext";
 import Konva from "konva";
@@ -133,9 +133,10 @@ const GameOfLife: React.FC<GameOfLifeProps> = ({ isPaused }) => {
   useEffect(() => {
     if (isPaused) return;
     const interval = setInterval(() => {
-      act(() => {
-        nextGeneration();
-      });
+      nextGeneration();
+      // act(() => {
+      //   nextGeneration();
+      // });
     }, 75);
     return () => clearInterval(interval);
   }, [currentGeneraion, isPaused]);
