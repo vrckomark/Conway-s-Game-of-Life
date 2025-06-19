@@ -134,7 +134,7 @@ const GameOfLife: React.FC<GameOfLifeProps> = ({ isPaused }) => {
       act(() => {
         nextGeneration();
       });
-    }, 150);
+    }, 75);
     return () => clearInterval(interval);
   }, [currentGeneraion, isPaused]);
 
